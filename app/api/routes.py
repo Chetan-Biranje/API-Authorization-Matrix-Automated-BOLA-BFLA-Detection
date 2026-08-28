@@ -51,10 +51,16 @@ def get_user(
             detail="User not found",
         )
 
-    # Intentionally vulnerable:
-    # No object-level authorization check is performed.
+     # Object-level authorization:
+    # Regular users can access only their own object.
+    if user.role == "user" and user.id != user_id:
+        raise HTTPException(
+            status_code=403,
+            detail="Not authorized to access this user",
+        )
+
     return {
-        "requested_by": user.username,
+       "requested_by": user.username,
         "user": {
             "id": target.id,
             "username": target.username,
