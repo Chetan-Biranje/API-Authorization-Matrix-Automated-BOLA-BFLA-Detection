@@ -68,3 +68,31 @@ def get_user(
             "role": target.role,
         },
     }
+
+
+@router.get("/admin/users")
+def get_all_users(
+    authorization: str | None = Header(default=None),
+):
+    user = authenticate(authorization)
+
+    try:
+        require_permission(user, "read_all")
+    except PermissionError:
+        raise HTTPException(
+            status_code=403,
+            detail="Admin permission required",
+        )
+
+    return {
+        "requested_by": user.username,
+        "users": [
+            {
+                "id": target.id,
+                "username": target.username,
+                "email": target.email,
+                "role": target.role,
+            }
+            for target in USER_RECORDS.values()
+        ],
+    }
