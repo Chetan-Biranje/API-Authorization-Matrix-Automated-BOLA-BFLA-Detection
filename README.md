@@ -423,5 +423,4 @@ Cybersecurity | Application Security | DevSecOps | Security Research
 ## License
 
 This project is intended for educational and authorized security research.
-
 ````
