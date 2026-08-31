@@ -1,105 +1,134 @@
+import json
 from dataclasses import dataclass
 
 
 @dataclass
 class AuthorizationCase:
     role: str
-    endpoint: str
     method: str
+    endpoint: str
     expected: str
-    reason: str
+    object_context: str | None = None
 
 
-AUTHORIZATION_MATRIX = [
-    AuthorizationCase(
-        role="user",
-        endpoint="/me",
-        method="GET",
-        expected="ALLOW",
-        reason="Authenticated user can access own profile",
-    ),
-    AuthorizationCase(
-        role="user",
-        endpoint="/users/{user_id}",
-        method="GET",
-        expected="OWN_ONLY",
-        reason="User can access only their own object",
-    ),
-    AuthorizationCase(
-        role="user",
-        endpoint="/admin/users",
-        method="GET",
-        expected="DENY",
-        reason="Administrative function requires admin permission",
-    ),
-    AuthorizationCase(
-        role="manager",
-        endpoint="/me",
-        method="GET",
-        expected="ALLOW",
-        reason="Authenticated manager can access own profile",
-    ),
-    AuthorizationCase(
-        role="manager",
-        endpoint="/users/{user_id}",
-        method="GET",
-        expected="ALL",
-        reason="Manager can access user records in this lab",
-    ),
-    AuthorizationCase(
-        role="manager",
-        endpoint="/admin/users",
-        method="GET",
-        expected="DENY",
-        reason="Administrative function requires admin permission",
-    ),
-    AuthorizationCase(
-        role="admin",
-        endpoint="/me",
-        method="GET",
-        expected="ALLOW",
-        reason="Authenticated admin can access own profile",
-    ),
-    AuthorizationCase(
-        role="admin",
-        endpoint="/users/{user_id}",
-        method="GET",
-        expected="ALL",
-        reason="Admin can access all user objects",
-    ),
-    AuthorizationCase(
-        role="admin",
-        endpoint="/admin/users",
-        method="GET",
-        expected="ALLOW",
-        reason="Admin has administrative permission",
-    ),
-]
+def load_policy(path: str = "roles.json") -> dict:
+    with open(path, "r", encoding="utf-8") as file:
+        return json.load(file)
 
 
-def build_matrix() -> list[AuthorizationCase]:
-    """Return the expected authorization policy."""
-    return AUTHORIZATION_MATRIX
+def resource_from_endpoint(endpoint: str) -> str:
+    if endpoint.startswith("/admin/"):
+        return "admin"
+
+    if endpoint.startswith("/users"):
+        return "users"
+
+    if endpoint.startswith("/documents"):
+        return "documents"
+
+    return "unknown"
 
 
-def print_matrix(cases: list[AuthorizationCase]) -> None:
-    print(
-        f"{'ROLE':10} "
-        f"{'METHOD':7} "
-        f"{'ENDPOINT':22} "
-        f"{'EXPECTED':12}"
-    )
-    print("-" * 60)
+def expected_access(
+    role: str,
+    endpoint: str,
+    policy: dict,
+) -> tuple[str, str | None]:
 
-    for case in cases:
-        print(
-            f"{case.role:10} "
-            f"{case.method:7} "
-            f"{case.endpoint:22} "
-            f"{case.expected:12}"
-        )
+    resource = resource_from_endpoint(endpoint)
+
+    permissions = policy.get(role, {}).get(resource, [])
+
+    if "all" in permissions:
+        return "ALLOW", "all"
+
+    if "own" in permissions:
+        return "OWN_ONLY", "own"
+
+    if "team" in permissions:
+        return "TEAM_ONLY", "team"
+
+    return "DENY", None
+
+
+def generate_cases(
+    endpoints: list[tuple[str, str]],
+    policy: dict,
+) -> list[AuthorizationCase]:
+
+    cases = []
+
+    for role in policy:
+        for method, endpoint in endpoints:
+
+            expected, context = expected_access(
+                role,
+                endpoint,
+                policy,
+            )
+
+            if expected == "OWN_ONLY":
+                cases.append(
+                    AuthorizationCase(
+                        role=role,
+                        method=method,
+                        endpoint=endpoint,
+                        expected="OWN_ONLY",
+                        object_context="own",
+                    )
+                )
+
+                cases.append(
+                    AuthorizationCase(
+                        role=role,
+                        method=method,
+                        endpoint=endpoint,
+                        expected="DENY",
+                        object_context="another",
+                    )
+                )
+
+            else:
+                cases.append(
+                    AuthorizationCase(
+                        role=role,
+                        method=method,
+                        endpoint=endpoint,
+                        expected=expected,
+                        object_context=context,
+                    )
+                )
+
+    return cases
 
 
 if __name__ == "__main__":
-    matrix = build_matrix()
-    print_matrix(matrix)
+
+    policy = load_policy()
+
+    endpoints = [
+        ("GET", "/me"),
+        ("GET", "/users/{user_id}"),
+        ("GET", "/admin/users"),
+    ]
+
+    cases = generate_cases(endpoints, policy)
+
+    print(
+        f"{'ROLE':<10}"
+        f"{'METHOD':<8}"
+        f"{'ENDPOINT':<25}"
+        f"{'EXPECTED':<12}"
+        f"OBJECT"
+    )
+
+    print("-" * 75)
+
+    for case in cases:
+        print(
+            f"{case.role:<10}"
+            f"{case.method:<8}"
+            f"{case.endpoint:<25}"
+            f"{case.expected:<12}"
+            f"{case.object_context or '-'}"
+        )

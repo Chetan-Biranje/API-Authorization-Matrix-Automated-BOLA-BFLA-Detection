@@ -1,0 +1,17 @@
+{
+  "user": {
+    "users": ["own"],
+    "documents": ["own"],
+    "admin": []
+  },
+  "manager": {
+    "users": ["all"],
+    "documents": ["own", "team"],
+    "admin": []
+  },
+  "admin": {
+    "users": ["all"],
+    "documents": ["all"],
+    "admin": ["all"]
+  }
+}
