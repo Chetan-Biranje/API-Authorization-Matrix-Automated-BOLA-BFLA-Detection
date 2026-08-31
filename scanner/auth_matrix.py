@@ -35,6 +35,9 @@ def expected_access(
     policy: dict,
 ) -> tuple[str, str | None]:
 
+    if endpoint == "/me":
+        return "ALLOW", None
+
     resource = resource_from_endpoint(endpoint)
 
     permissions = policy.get(role, {}).get(resource, [])
@@ -67,7 +70,11 @@ def generate_cases(
                 policy,
             )
 
+            # For OWN_ONLY authorization, generate both:
+            # 1. own object -> expected OWN_ONLY
+            # 2. another user's object -> expected DENY
             if expected == "OWN_ONLY":
+
                 cases.append(
                     AuthorizationCase(
                         role=role,
@@ -89,6 +96,7 @@ def generate_cases(
                 )
 
             else:
+
                 cases.append(
                     AuthorizationCase(
                         role=role,
@@ -112,7 +120,10 @@ if __name__ == "__main__":
         ("GET", "/admin/users"),
     ]
 
-    cases = generate_cases(endpoints, policy)
+    cases = generate_cases(
+        endpoints,
+        policy,
+    )
 
     print(
         f"{'ROLE':<10}"
