@@ -22,5 +22,5 @@ def test_user_cannot_access_another_users_object():
         headers={"Authorization": "Bearer user-token"},
     )
 
-    # This test should FAIL against the intentionally vulnerable API.
+    # Passes on the default (secure) app; fails when LAB_VULNERABLE=1.
     assert response.status_code == 403

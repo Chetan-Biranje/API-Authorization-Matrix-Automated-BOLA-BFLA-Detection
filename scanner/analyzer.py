@@ -62,7 +62,9 @@ def analyze(
     finding = "NONE"
 
     if expected == "DENY" and observed == "ALLOW":
-        finding = "BFLA"
+        # Access to another user's object is object-level (BOLA).
+        # Access to a whole function the role should not reach is BFLA.
+        finding = "BOLA" if object_context == "another" else "BFLA"
 
     elif expected == "OWN_ONLY":
         if object_context == "own" and observed != "ALLOW":

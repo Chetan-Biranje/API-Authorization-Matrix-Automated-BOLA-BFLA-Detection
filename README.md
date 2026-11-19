@@ -61,6 +61,35 @@ The current research focuses on:
 | `/documents/{id}` — own document | Allow | Allow |
 | `/admin/users` | Deny | Allow |
 
+## Quick Start
+
+```bash
+pip install -r requirements.txt
+pytest                       # 11 tests against the secure app
+
+# Terminal 1: run the lab API with the authorization checks turned off
+LAB_VULNERABLE=1 uvicorn app.main:app --port 8000
+
+# Terminal 2: run the scanner
+python -m scanner.run_experiment
+```
+
+`LAB_VULNERABLE=1` disables the object-level and function-level checks, so the
+scanner has real flaws to find. Without it the app enforces them. Use it only
+on your own machine.
+
+### Result of the first experiment
+
+3 roles, 3 endpoints, 10 generated cases, one run against each mode:
+
+| Mode | Findings | Detail |
+|---|---|---|
+| Secure (default) | 0 | All 10 cases matched the policy |
+| `LAB_VULNERABLE=1` | 3 | 1 BOLA (`user` reads another user), 2 BFLA (`user` and `manager` call `/admin/users`) |
+
+The cases are few and the app is small, so this shows that the pipeline works.
+It is not a measure of detection accuracy. See `docs/research-results.md`.
+
 ## Research Methodology
 
 ### 1. API Discovery
@@ -170,23 +199,23 @@ cannot be reintroduced.
 
 ## Technology Stack
 
-### Application
+### Application (implemented)
 
 * Python
 * FastAPI
-* SQLite/PostgreSQL
-* JWT/session authentication
+* In-memory users with static bearer tokens (lab only)
+
+Planned: a database and JWT authentication.
 
 ### Security Testing
 
-* Burp Suite Community
 * pytest
 * OWASP API Security methodology
 
 ### Automation
 
 * HTTPX
-* OpenAPI
+* OpenAPI (parser in progress)
 * Python
 * JSON
 
@@ -378,21 +407,18 @@ The same authorization analyzer will be evaluated against each version.
 
 ### Completed
 
-* Authorization matrix baseline
-* Initial project structure
-* Git repository
-* Python virtual environment
-* Initial authorization-model work
+* Authorization matrix baseline (`roles.json`)
+* Test case generation from the matrix
+* Expected-vs-observed analysis with BOLA and BFLA classification
+* Lab API with a switchable vulnerable mode
+* 11 pytest tests
+* CI workflow (tests, Gitleaks, Semgrep, Trivy)
 
 ### In Progress
 
-* OpenAPI endpoint parsing
-* Authorization test generation
-* Automated expected-vs-observed analysis
-* BOLA detection
-* BFLA detection
-* Regression testing
-* CI/CD integration
+* OpenAPI endpoint parsing (`scanner/openapi_parser.py`)
+* Report generation from experiment runs (`scanner/reporter.py`)
+* More endpoints, roles and POST/PUT/DELETE methods
 
 ### Future Work
 
@@ -421,4 +447,5 @@ Chetan Biranje
 Cybersecurity | Application Security | DevSecOps | Security Research
 
 ## License
-This project is intended for educational and authorized security research.
+
+MIT. Use it for education and authorized security research only.

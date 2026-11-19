@@ -1,3 +1,5 @@
+import os
+
 from fastapi import APIRouter, Header, HTTPException
 
 from app.auth.authentication import get_current_user
@@ -5,6 +7,13 @@ from app.auth.authorization import require_permission
 from app.models.users import USER_RECORDS
 
 router = APIRouter()
+
+
+def lab_vulnerable() -> bool:
+    """Lab switch. LAB_VULNERABLE=1 disables the authorization checks so the
+    scanner has real BOLA and BFLA flaws to detect. Never enable it outside a
+    local lab."""
+    return os.getenv("LAB_VULNERABLE", "0") == "1"
 
 
 def authenticate(authorization: str | None):
@@ -51,9 +60,9 @@ def get_user(
             detail="User not found",
         )
 
-     # Object-level authorization:
+    # Object-level authorization:
     # Regular users can access only their own object.
-    if user.role == "user" and user.id != user_id:
+    if not lab_vulnerable() and user.role == "user" and user.id != user_id:
         raise HTTPException(
             status_code=403,
             detail="Not authorized to access this user",
@@ -76,13 +85,14 @@ def get_all_users(
 ):
     user = authenticate(authorization)
 
-    try:
-        require_permission(user, "read_all")
-    except PermissionError:
-        raise HTTPException(
-            status_code=403,
-            detail="Admin permission required",
-        )
+    if not lab_vulnerable():
+        try:
+            require_permission(user, "read_all")
+        except PermissionError:
+            raise HTTPException(
+                status_code=403,
+                detail="Admin permission required",
+            )
 
     return {
         "requested_by": user.username,
